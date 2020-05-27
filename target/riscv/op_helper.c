@@ -19,6 +19,7 @@
 
 #include "qemu/osdep.h"
 #include "qemu/log.h"
+#include "qemu/error-report.h"
 #include "cpu.h"
 #include "qemu/main-loop.h"
 #include "exec/exec-all.h"
@@ -36,6 +37,24 @@ void QEMU_NORETURN riscv_raise_exception(CPURISCVState *env,
 void helper_raise_exception(CPURISCVState *env, uint32_t exception)
 {
     riscv_raise_exception(env, exception, 0);
+}
+
+void helper_semihosting(CPURISCVState *env, target_ulong a0, target_ulong a7)
+{
+    int64_t test_num = (int64_t) a0;
+
+    /*
+     * magic number: 93 (saved in a7 register), indicates that the
+     * ecall is called from SiFive unit test.
+     */
+    if (a7 == 93) {
+        if (test_num != 0) {
+            error_report("*** FAILED *** (TESTNUM = %ld)", test_num >> 1);
+            exit(1);
+        }
+        qemu_log("*** PASSED ***");
+        exit(0);
+    }
 }
 
 target_ulong helper_csrrw(CPURISCVState *env, target_ulong src,

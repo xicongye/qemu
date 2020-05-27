@@ -1197,3 +1197,5 @@ DEF_HELPER_5(vsext_vf2_d, void, ptr, ptr, ptr, env, i32)
 DEF_HELPER_5(vsext_vf4_w, void, ptr, ptr, ptr, env, i32)
 DEF_HELPER_5(vsext_vf4_d, void, ptr, ptr, ptr, env, i32)
 DEF_HELPER_5(vsext_vf8_d, void, ptr, ptr, ptr, env, i32)
+
+DEF_HELPER_3(semihosting, void, env, tl, tl)
