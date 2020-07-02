@@ -2879,6 +2879,8 @@ GEN_OPFV_TRANS(vfcvt_xu_f_v, opfv_check)
 GEN_OPFV_TRANS(vfcvt_x_f_v, opfv_check)
 GEN_OPFV_TRANS(vfcvt_f_xu_v, opfv_check)
 GEN_OPFV_TRANS(vfcvt_f_x_v, opfv_check)
+GEN_OPFV_TRANS(vfcvt_rtz_xu_f_v, opfv_check)
+GEN_OPFV_TRANS(vfcvt_rtz_x_f_v, opfv_check)
 
 /* Widening Floating-Point/Integer Type-Convert Instructions */
 
