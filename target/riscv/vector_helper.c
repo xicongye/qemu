@@ -121,14 +121,32 @@ static inline uint32_t vext_vma(uint32_t desc)
 }
 
 /*
- * Get vector group length in bytes. Its range is [64, 2048].
- *
- * As simd_desc support at most 256, the max vlen is 512 bits.
- * So vlen in bytes is encoded as maxsz.
+ * Get the maximum number of elements can be operated.
  */
-static inline uint32_t vext_maxsz(uint32_t desc)
+static inline uint32_t vext_max_elems(uint32_t desc, uint32_t esz, bool is_ldst)
 {
-    return simd_maxsz(desc) << vext_lmul(desc);
+    /*
+     * As simd_desc support at most 256, the max vlen is 512 bits,
+     * so vlen in bytes (vlenb) is encoded as maxsz.
+     */
+    uint32_t vlenb = simd_maxsz(desc);
+
+    if (is_ldst) {
+        /*
+         * Vector load/store instructions have the EEW encoded
+         * directly in the instructions. The maximum vector size is
+         * calculated with EMUL rather than LMUL.
+         */
+        uint32_t eew = esz << 3;
+        uint32_t sew = vext_sew(desc);
+        float flmul = vext_vflmul(desc);
+        float emul = (float)eew / sew * flmul;
+        uint32_t emul_r = emul < 1 ? 1 : emul;
+        return vlenb * emul_r / esz;
+    } else {
+        /* Return VLMAX */
+        return vlenb * vext_vflmul(desc) / esz;
+    }
 }
 
 /*
@@ -289,7 +307,7 @@ vext_ldst_stride(void *vd, void *v0, target_ulong base,
 {
     uint32_t i, k;
     uint32_t nf = vext_nf(desc);
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t max_elems = vext_max_elems(desc, esz, true);
     uint32_t vta = vext_vta(desc);
 
     /* probe every access*/
@@ -307,15 +325,15 @@ vext_ldst_stride(void *vd, void *v0, target_ulong base,
         }
         while (k < nf) {
             target_ulong addr = base + stride * i + k * esz;
-            ldst_elem(env, addr, i + k * vlmax, vd, ra);
+            ldst_elem(env, addr, i + k * max_elems, vd, ra);
             k++;
         }
     }
     /* clear tail elements */
     if (clear_elem) {
         for (k = 0; k < nf; k++) {
-            clear_elem(vd, vta, env->vl + k * vlmax,
-                       env->vl * esz, vlmax * esz);
+            clear_elem(vd, vta, env->vl + k * max_elems,
+                       env->vl * esz, max_elems * esz);
         }
     }
 }
@@ -364,7 +382,7 @@ vext_ldst_us(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
 {
     uint32_t i, k;
     uint32_t nf = vext_nf(desc);
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t max_elems = vext_max_elems(desc, esz, true);
     uint32_t vta = vext_vta(desc);
 
     /* probe every access */
@@ -374,15 +392,15 @@ vext_ldst_us(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
         k = 0;
         while (k < nf) {
             target_ulong addr = base + (i * nf + k) * esz;
-            ldst_elem(env, addr, i + k * vlmax, vd, ra);
+            ldst_elem(env, addr, i + k * max_elems, vd, ra);
             k++;
         }
     }
     /* clear tail elements */
     if (clear_elem) {
         for (k = 0; k < nf; k++) {
-            clear_elem(vd, vta, env->vl + k * vlmax,
-                       env->vl * esz, vlmax * esz);
+            clear_elem(vd, vta, env->vl + k * max_elems,
+                       env->vl * esz, max_elems * esz);
         }
     }
 }
@@ -465,7 +483,7 @@ vext_ldst_index(void *vd, void *v0, target_ulong base,
     uint32_t i, k;
     uint32_t nf = vext_nf(desc);
     uint32_t vm = vext_vm(desc);
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t max_elems = vext_max_elems(desc, esz, true);
     uint32_t vta = vext_vta(desc);
 
     /* probe every access*/
@@ -484,15 +502,15 @@ vext_ldst_index(void *vd, void *v0, target_ulong base,
         }
         while (k < nf) {
             abi_ptr addr = get_index_addr(base, i, vs2) + k * esz;
-            ldst_elem(env, addr, i + k * vlmax, vd, ra);
+            ldst_elem(env, addr, i + k * max_elems, vd, ra);
             k++;
         }
     }
     /* clear tail elements */
     if (clear_elem) {
         for (k = 0; k < nf; k++) {
-            clear_elem(vd, vta, env->vl + k * vlmax,
-                       env->vl * esz, vlmax * esz);
+            clear_elem(vd, vta, env->vl + k * max_elems,
+                       env->vl * esz, max_elems * esz);
         }
     }
 }
@@ -563,7 +581,7 @@ vext_ldff(void *vd, void *v0, target_ulong base,
     uint32_t i, k, vl = 0;
     uint32_t nf = vext_nf(desc);
     uint32_t vm = vext_vm(desc);
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t max_elems = vext_max_elems(desc, esz, true);
     uint32_t vta = vext_vta(desc);
     target_ulong addr, offset, remain;
 
@@ -615,7 +633,7 @@ ProbeSuccess:
         }
         while (k < nf) {
             target_ulong addr = base + (i * nf + k) * esz;
-            ldst_elem(env, addr, i + k * vlmax, vd, ra);
+            ldst_elem(env, addr, i + k * max_elems, vd, ra);
             k++;
         }
     }
@@ -624,8 +642,8 @@ ProbeSuccess:
         return;
     }
     for (k = 0; k < nf; k++) {
-        clear_elem(vd, vta, env->vl + k * vlmax,
-                   env->vl * esz, vlmax * esz);
+        clear_elem(vd, vta, env->vl + k * max_elems,
+                   env->vl * esz, max_elems * esz);
     }
 }
 
@@ -652,7 +670,7 @@ vext_ldst_whole(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
 {
     uint32_t i, k;
     uint32_t nf = vext_nf(desc);
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t max_elems = vext_max_elems(desc, esz, true);
     uint32_t vlenb = env_archcpu(env)->cfg.vlen >> 3;
 
     /* probe every access */
@@ -663,7 +681,7 @@ vext_ldst_whole(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
         k = 0;
         while (k < nf) {
             target_ulong addr = base + (i * nf + k) * esz;
-            ldst_elem(env, addr, i + k * vlmax, vd, ra);
+            ldst_elem(env, addr, i + k * max_elems, vd, ra);
             k++;
         }
     }
@@ -806,7 +824,7 @@ vext_amo_noatomic(void *vs3, void *v0, target_ulong base,
     target_long addr;
     uint32_t wd = vext_wd(desc);
     uint32_t vm = vext_vm(desc);
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t vlmax = vext_max_elems(desc, esz, false);
     uint32_t vta = vext_vta(desc);
 
     for (i = 0; i < env->vl; i++) {
@@ -977,7 +995,7 @@ static void do_vext_vv(void *vd, void *v0, void *vs1, void *vs2,
                        uint32_t esz, uint32_t dsz,
                        opivv2_fn *fn, clear_fn *clearfn)
 {
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t vlmax = vext_max_elems(desc, esz, false);
     uint32_t vm = vext_vm(desc);
     uint32_t vta = vext_vta(desc);
     uint32_t vl = env->vl;
@@ -989,7 +1007,7 @@ static void do_vext_vv(void *vd, void *v0, void *vs1, void *vs2,
         }
         fn(vd, vs1, vs2, i);
     }
-    clearfn(vd, vta, vl, vl * dsz,  vlmax * dsz);
+    clearfn(vd, vta, vl, vl * dsz, vlmax * dsz);
 }
 
 /* generate the helpers for OPIVV */
@@ -1042,7 +1060,7 @@ static void do_vext_vx(void *vd, void *v0, target_long s1, void *vs2,
                        uint32_t esz, uint32_t dsz,
                        opivx2_fn fn, clear_fn *clearfn)
 {
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t vlmax = vext_max_elems(desc, esz, false);
     uint32_t vm = vext_vm(desc);
     uint32_t vta = vext_vta(desc);
     uint32_t vl = env->vl;
@@ -1054,7 +1072,7 @@ static void do_vext_vx(void *vd, void *v0, target_long s1, void *vs2,
         }
         fn(vd, s1, vs2, i);
     }
-    clearfn(vd, vta, vl, vl * dsz,  vlmax * dsz);
+    clearfn(vd, vta, vl, vl * dsz, vlmax * dsz);
 }
 
 /* generate the helpers for OPIVX */
@@ -1241,7 +1259,7 @@ void HELPER(NAME)(void *vd, void *v0, void *vs1, void *vs2,   \
 {                                                             \
     uint32_t vl = env->vl;                                    \
     uint32_t esz = sizeof(ETYPE);                             \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                  \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);        \
     uint32_t vta = vext_vta(desc);                            \
     uint32_t i;                                               \
                                                               \
@@ -1271,7 +1289,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,        \
 {                                                                        \
     uint32_t vl = env->vl;                                               \
     uint32_t esz = sizeof(ETYPE);                                        \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                             \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);                   \
     uint32_t vta = vext_vta(desc);                                       \
     uint32_t i;                                                          \
                                                                          \
@@ -1333,7 +1351,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,          \
                   void *vs2, CPURISCVState *env, uint32_t desc) \
 {                                                               \
     uint32_t vl = env->vl;                                      \
-    uint32_t vlmax = vext_maxsz(desc) / sizeof(ETYPE);          \
+    uint32_t vlmax = vext_max_elems(desc, sizeof(ETYPE), false);\
     uint32_t i;                                                 \
                                                                 \
     for (i = 0; i < vl; i++) {                                  \
@@ -1421,7 +1439,7 @@ void HELPER(NAME)(void *vd, void *v0, void *vs1,                          \
     uint32_t vm = vext_vm(desc);                                          \
     uint32_t vl = env->vl;                                                \
     uint32_t esz = sizeof(TS1);                                           \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                              \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);                    \
     uint32_t vta = vext_vta(desc);                                        \
     uint32_t i;                                                           \
                                                                           \
@@ -1459,7 +1477,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,                \
     uint32_t vm = vext_vm(desc);                                      \
     uint32_t vl = env->vl;                                            \
     uint32_t esz = sizeof(TD);                                        \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                          \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);                \
     uint32_t vta = vext_vta(desc);                                    \
     uint32_t i;                                                       \
                                                                       \
@@ -2102,7 +2120,7 @@ void HELPER(NAME)(void *vd, void *vs1, CPURISCVState *env,           \
 {                                                                    \
     uint32_t vl = env->vl;                                           \
     uint32_t esz = sizeof(ETYPE);                                    \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                         \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);               \
     uint32_t vta = vext_vta(desc);                                   \
     uint32_t i;                                                      \
                                                                      \
@@ -2124,7 +2142,7 @@ void HELPER(NAME)(void *vd, uint64_t s1, CPURISCVState *env,         \
 {                                                                    \
     uint32_t vl = env->vl;                                           \
     uint32_t esz = sizeof(ETYPE);                                    \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                         \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);               \
     uint32_t vta = vext_vta(desc);                                   \
     uint32_t i;                                                      \
                                                                      \
@@ -2145,7 +2163,7 @@ void HELPER(NAME)(void *vd, void *v0, void *vs1, void *vs2,          \
 {                                                                    \
     uint32_t vl = env->vl;                                           \
     uint32_t esz = sizeof(ETYPE);                                    \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                         \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);               \
     uint32_t vta = vext_vta(desc);                                   \
     uint32_t i;                                                      \
                                                                      \
@@ -2167,7 +2185,7 @@ void HELPER(NAME)(void *vd, void *v0, target_ulong s1,               \
 {                                                                    \
     uint32_t vl = env->vl;                                           \
     uint32_t esz = sizeof(ETYPE);                                    \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                         \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);               \
     uint32_t vta = vext_vta(desc);                                   \
     uint32_t i;                                                      \
                                                                      \
@@ -2228,7 +2246,7 @@ vext_vv_rm_2(void *vd, void *v0, void *vs1, void *vs2,
              uint32_t desc, uint32_t esz, uint32_t dsz,
              opivv2_rm_fn *fn, clear_fn *clearfn)
 {
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t vlmax = vext_max_elems(desc, esz, false);
     uint32_t vm = vext_vm(desc);
     uint32_t vta = vext_vta(desc);
     uint32_t vl = env->vl;
@@ -2348,7 +2366,7 @@ vext_vx_rm_2(void *vd, void *v0, target_long s1, void *vs2,
              uint32_t desc, uint32_t esz, uint32_t dsz,
              opivx2_rm_fn *fn, clear_fn *clearfn)
 {
-    uint32_t vlmax = vext_maxsz(desc) / esz;
+    uint32_t vlmax = vext_max_elems(desc, esz, false);
     uint32_t vm = vext_vm(desc);
     uint32_t vta = vext_vta(desc);
     uint32_t vl = env->vl;
@@ -3284,7 +3302,7 @@ void HELPER(NAME)(void *vd, void *v0, void *vs1,          \
                   void *vs2, CPURISCVState *env,          \
                   uint32_t desc)                          \
 {                                                         \
-    uint32_t vlmax = vext_maxsz(desc) / ESZ;              \
+    uint32_t vlmax = vext_max_elems(desc, ESZ, false);    \
     uint32_t vm = vext_vm(desc);                          \
     uint32_t vta = vext_vta(desc);                        \
     uint32_t vl = env->vl;                                \
@@ -3319,7 +3337,7 @@ void HELPER(NAME)(void *vd, void *v0, uint64_t s1,        \
                   void *vs2, CPURISCVState *env,          \
                   uint32_t desc)                          \
 {                                                         \
-    uint32_t vlmax = vext_maxsz(desc) / ESZ;              \
+    uint32_t vlmax = vext_max_elems(desc, ESZ, false);    \
     uint32_t vm = vext_vm(desc);                          \
     uint32_t vta = vext_vta(desc);                        \
     uint32_t vl = env->vl;                                \
@@ -3890,7 +3908,7 @@ static void do_##NAME(void *vd, void *vs2, int i,      \
 void HELPER(NAME)(void *vd, void *v0, void *vs2,       \
         CPURISCVState *env, uint32_t desc)             \
 {                                                      \
-    uint32_t vlmax = vext_maxsz(desc) / ESZ;           \
+    uint32_t vlmax = vext_max_elems(desc, ESZ, false); \
     uint32_t vm = vext_vm(desc);                       \
     uint32_t vta = vext_vta(desc);                     \
     uint32_t vl = env->vl;                             \
@@ -4067,7 +4085,7 @@ void HELPER(NAME)(void *vd, void *v0, uint64_t s1, void *vs2,       \
 {                                                                   \
     uint32_t vm = vext_vm(desc);                                    \
     uint32_t vl = env->vl;                                          \
-    uint32_t vlmax = vext_maxsz(desc) / sizeof(ETYPE);              \
+    uint32_t vlmax = vext_max_elems(desc, sizeof(ETYPE), false);    \
     uint32_t i;                                                     \
                                                                     \
     for (i = 0; i < vl; i++) {                                      \
@@ -4211,7 +4229,7 @@ static void do_##NAME(void *vd, void *vs2, int i)      \
 void HELPER(NAME)(void *vd, void *v0, void *vs2,       \
                   CPURISCVState *env, uint32_t desc)   \
 {                                                      \
-    uint32_t vlmax = vext_maxsz(desc) / ESZ;           \
+    uint32_t vlmax = vext_max_elems(desc, ESZ, false); \
     uint32_t vm = vext_vm(desc);                       \
     uint32_t vta = vext_vta(desc);                     \
     uint32_t vl = env->vl;                             \
@@ -4298,7 +4316,7 @@ void HELPER(NAME)(void *vd, void *v0, uint64_t s1, void *vs2, \
     uint32_t vm = vext_vm(desc);                              \
     uint32_t vl = env->vl;                                    \
     uint32_t esz = sizeof(ETYPE);                             \
-    uint32_t vlmax = vext_maxsz(desc) / esz;                  \
+    uint32_t vlmax = vext_max_elems(desc, esz, false);        \
     uint32_t vta = vext_vta(desc);                            \
     uint32_t i;                                               \
                                                               \
@@ -4798,7 +4816,7 @@ GEN_VEXT_VID_V(vid_v_d, uint64_t, H8, clearq)
 void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,         \
                   CPURISCVState *env, uint32_t desc)                      \
 {                                                                         \
-    uint32_t vlmax = env_archcpu(env)->cfg.vlen;                          \
+    uint32_t vlmax = vext_max_elems(desc, sizeof(ETYPE), false);          \
     uint32_t vm = vext_vm(desc);                                          \
     uint32_t vta = vext_vta(desc);                                        \
     uint32_t vl = env->vl;                                                \
@@ -4908,7 +4926,7 @@ GEN_VEXT_VSLIDE1DOWN_VX(vslide1down_vx_d, uint64_t, H8, clearq)
 void HELPER(NAME)(void *vd, void *v0, void *vs1, void *vs2,               \
                   CPURISCVState *env, uint32_t desc)                      \
 {                                                                         \
-    uint32_t vlmax = env_archcpu(env)->cfg.vlen;                          \
+    uint32_t vlmax = vext_max_elems(desc, sizeof(ETYPE), false);          \
     uint32_t vm = vext_vm(desc);                                          \
     uint32_t vta = vext_vta(desc);                                        \
     uint32_t vl = env->vl;                                                \
@@ -4938,7 +4956,7 @@ GEN_VEXT_VRGATHER_VV(vrgather_vv_d, uint64_t, H8, clearq)
 void HELPER(NAME)(void *vd, void *v0, target_ulong s1, void *vs2,         \
                   CPURISCVState *env, uint32_t desc)                      \
 {                                                                         \
-    uint32_t vlmax = env_archcpu(env)->cfg.vlen;                          \
+    uint32_t vlmax = vext_max_elems(desc, sizeof(ETYPE), false);          \
     uint32_t vm = vext_vm(desc);                                          \
     uint32_t vta = vext_vta(desc);                                        \
     uint32_t vl = env->vl;                                                \
@@ -4968,7 +4986,7 @@ GEN_VEXT_VRGATHER_VX(vrgather_vx_d, uint64_t, H8, clearq)
 void HELPER(NAME)(void *vd, void *v0, void *vs1, void *vs2,               \
                   CPURISCVState *env, uint32_t desc)                      \
 {                                                                         \
-    uint32_t vlmax = env_archcpu(env)->cfg.vlen;                          \
+    uint32_t vlmax = vext_max_elems(desc, sizeof(ETYPE), false);          \
     uint32_t vta = vext_vta(desc);                                        \
     uint32_t vl = env->vl;                                                \
     uint32_t num = 0, i;                                                  \
