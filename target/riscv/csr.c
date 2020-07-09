@@ -191,7 +191,7 @@ static int read_vtype(CPURISCVState *env, int csrno, target_ulong *val)
 
 static int read_vlenb(CPURISCVState *env, int csrno, target_ulong *val)
 {
-    *val = env->vlenb;
+    *val = env_archcpu(env)->cfg.vlen >> 3;
     return 0;
 }
 

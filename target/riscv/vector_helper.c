@@ -678,12 +678,13 @@ vext_ldst_whole(void *vd, target_ulong base, CPURISCVState *env, uint32_t desc,
     uint32_t i, k;
     uint32_t nf = vext_nf(desc);
     uint32_t max_elems = vext_max_elems(desc, esz, true);
+    uint32_t vlenb = env_archcpu(env)->cfg.vlen >> 3;
 
     /* probe every access */
-    probe_pages(env, base, env->vlenb * nf * esz, ra, access_type);
+    probe_pages(env, base, vlenb * nf * esz, ra, access_type);
 
     /* load bytes from guest memory */
-    for (i = 0; i < env->vlenb; i++) {
+    for (i = 0; i < vlenb; i++) {
         k = 0;
         while (k < nf) {
             target_ulong addr = base + (i * nf + k) * esz;

@@ -360,12 +360,13 @@ static int riscv_gdb_set_fpu(CPURISCVState *env, uint8_t *mem_buf, int n)
 
 static int riscv_gdb_get_vector(CPURISCVState *env, GByteArray *buf, int n)
 {
+    uint16_t vlenb = env_archcpu(env)->cfg.vlen >> 3;
     if (n < 32) {
         int i;
         int cnt = 0;
-        for (i = 0; i < env->vlenb; i += 8) {
+        for (i = 0; i < vlenb; i += 8) {
             cnt += gdb_get_reg64(buf,
-                                 env->vreg[(n * env->vlenb + i) / 8]);
+                                 env->vreg[(n * vlenb + i) / 8]);
         }
         return cnt;
     }
@@ -374,12 +375,13 @@ static int riscv_gdb_get_vector(CPURISCVState *env, GByteArray *buf, int n)
 
 static int riscv_gdb_set_vector(CPURISCVState *env, uint8_t *mem_buf, int n)
 {
+    uint16_t vlenb = env_archcpu(env)->cfg.vlen >> 3;
     if (n < 32) {
         int i;
-        for (i = 0; i < env->vlenb; i += 8) {
-            env->vreg[(n * env->vlenb + i) / 8] = ldq_p(mem_buf + i);
+        for (i = 0; i < vlenb; i += 8) {
+            env->vreg[(n * vlenb + i) / 8] = ldq_p(mem_buf + i);
         }
-        return env->vlenb;
+        return vlenb;
     }
     return 0;
 }
