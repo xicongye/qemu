@@ -86,9 +86,15 @@ static inline uint32_t vext_vm(uint32_t desc)
     return FIELD_EX32(simd_data(desc), VDATA, VM);
 }
 
-static inline uint32_t vext_lmul(uint32_t desc)
+static inline uint32_t vext_sew(uint32_t desc)
 {
-    return FIELD_EX32(simd_data(desc), VDATA, LMUL);
+    return 1 << (FIELD_EX32(simd_data(desc), VDATA, SEW) + 3);
+}
+
+static inline float vext_vflmul(uint32_t desc)
+{
+    uint32_t lmul = FIELD_EX32(simd_data(desc), VDATA, LMUL);
+    return flmul_table[lmul];
 }
 
 static uint32_t vext_wd(uint32_t desc)
