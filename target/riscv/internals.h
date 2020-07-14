@@ -25,8 +25,10 @@
 FIELD(VDATA, VM, 0, 1)
 FIELD(VDATA, LMUL, 1, 3)
 FIELD(VDATA, SEW, 4, 3)
-FIELD(VDATA, NF, 7, 4)
-FIELD(VDATA, WD, 7, 1)
+FIELD(VDATA, VTA, 7, 1)
+FIELD(VDATA, VMA, 8, 1)
+FIELD(VDATA, NF, 9, 4)
+FIELD(VDATA, WD, 9, 1)
 
 /* float point classify helpers */
 target_ulong fclass_h(uint64_t frs1);

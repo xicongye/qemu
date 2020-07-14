@@ -97,6 +97,8 @@ typedef struct CPURISCVState CPURISCVState;
 FIELD(VTYPE, VLMUL, 0, 2)
 FIELD(VTYPE, VSEW, 2, 3)
 FIELD(VTYPE, VFLMUL, 5, 1)
+FIELD(VTYPE, VTA, 6, 1)
+FIELD(VTYPE, VMA, 7, 1)
 FIELD(VTYPE, VEDIV, 8, 9)
 FIELD(VTYPE, RESERVED, 10, sizeof(target_ulong) * 8 - 11)
 FIELD(VTYPE, VILL, sizeof(target_ulong) * 8 - 1, 1)
@@ -372,7 +374,10 @@ FIELD(TB_FLAGS, VL_EQ_VLMAX, 2, 1)
 FIELD(TB_FLAGS, LMUL, 3, 3)
 FIELD(TB_FLAGS, SEW, 6, 3)
 /* Skip MSTATUS_VS (0x600) fields */
-FIELD(TB_FLAGS, VILL, 11, 1)
+FIELD(TB_FLAGS, VTA, 11, 1)
+FIELD(TB_FLAGS, VMA, 12, 1)
+/* Skip MSTATUS_FS (0x6000) fields */
+FIELD(TB_FLAGS, VILL, 15, 1)
 
 /*
  * A simplification for VLMAX
@@ -409,6 +414,10 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
         flags = FIELD_DP32(flags, TB_FLAGS, LMUL,
                     (FIELD_EX64(env->vtype, VTYPE, VFLMUL) << 2)
                         | FIELD_EX64(env->vtype, VTYPE, VLMUL));
+        flags = FIELD_DP32(flags, TB_FLAGS, VTA,
+                    FIELD_EX64(env->vtype, VTYPE, VTA));
+        flags = FIELD_DP32(flags, TB_FLAGS, VMA,
+                    FIELD_EX64(env->vtype, VTYPE, VMA));
         flags = FIELD_DP32(flags, TB_FLAGS, VL_EQ_VLMAX, vl_eq_vlmax);
     } else {
         flags = FIELD_DP32(flags, TB_FLAGS, VILL, 1);
