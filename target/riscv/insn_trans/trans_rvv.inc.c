@@ -3244,12 +3244,17 @@ static bool trans_vfmv_f_s(DisasContext *s, arg_vfmv_f_s *a)
     require(s->mstatus_fs != 0);
     require(s->sew != 0);
 
-    unsigned int len = 8 << s->sew;
+    unsigned int ofs = (8 << s->sew);
+    unsigned int len = 64 - ofs;
+    TCGv_i64 t_nan;
 
     vec_element_loadi(s, cpu_fpr[a->rd], a->rs2, 0, false);
-    if (len < 64) {
-        tcg_gen_ori_i64(cpu_fpr[a->rd], cpu_fpr[a->rd],
-                        MAKE_64BIT_MASK(len, 64 - len));
+    /* NaN-box f[rd] as necessary for SEW */
+    if (len) {
+        t_nan = tcg_const_i64(UINT64_MAX);
+        tcg_gen_deposit_i64(cpu_fpr[a->rd], cpu_fpr[a->rd],
+                            t_nan, ofs, len);
+        tcg_temp_free_i64(t_nan);
     }
 
     mark_fs_dirty(s);
