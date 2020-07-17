@@ -3214,19 +3214,23 @@ static bool trans_vmv_s_x(DisasContext *s, arg_vmv_s_x *a)
 
     /* This instruction ignores LMUL and vector register groups */
     TCGv_i64 t1;
+    TCGv s1;
     TCGLabel *over = gen_new_label();
 
     tcg_gen_brcondi_tl(TCG_COND_EQ, cpu_vl, 0, over);
-    if (a->rs1 == 0) {
-        goto done;
-    }
 
     t1 = tcg_temp_new_i64();
-    tcg_gen_extu_tl_i64(t1, cpu_gpr[a->rs1]);
+    s1 = tcg_temp_new();
+
+    /* load gpr and sign-extend to 64 bits,
+     * then truncate to SEW bits when storing to vreg.
+     */
+    gen_get_gpr(s1, a->rs1);
+    tcg_gen_ext_tl_i64(t1, s1);
     vec_element_storei(s, a->rd, 0, t1);
     tcg_temp_free_i64(t1);
+    tcg_temp_free(s1);
     mark_vs_dirty(s);
-done:
     gen_set_label(over);
     return true;
 }
