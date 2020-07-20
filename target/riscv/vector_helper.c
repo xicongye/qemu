@@ -36,7 +36,15 @@ target_ulong HELPER(vsetvl)(CPURISCVState *env, target_ulong s1,
     bool vill = FIELD_EX64(s2, VTYPE, VILL);
     target_ulong reserved = FIELD_EX64(s2, VTYPE, RESERVED);
 
-    if ((sew > cpu->cfg.elen) || vill || (ediv != 0) || (reserved != 0)) {
+    uint64_t lmul = (FIELD_EX64(s2, VTYPE, VFLMUL) << 2)
+        | FIELD_EX64(s2, VTYPE, VLMUL);
+    float vflmul = flmul_table[lmul];
+
+    if ((sew > cpu->cfg.elen)
+        || vill
+        || vflmul < ((float)sew / cpu->cfg.elen)
+        || (ediv != 0)
+        || (reserved != 0)) {
         /* only set vill bit. */
         env->vtype = FIELD_DP64(0, VTYPE, VILL, 1);
         env->vl = 0;
