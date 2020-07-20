@@ -2196,7 +2196,18 @@ static bool opfvf_trans(uint32_t vd, uint32_t rs1, uint32_t vs2,
     tcg_gen_addi_ptr(src2, cpu_env, vreg_ofs(s, vs2));
     tcg_gen_addi_ptr(mask, cpu_env, vreg_ofs(s, 0));
 
-    fn(dest, mask, cpu_fpr[rs1], src2, cpu_env, desc);
+    if ((s->sew < MO_64 && has_ext(s, RVD)) ||
+        (s->sew < MO_32)) {
+        /* SEW < FLEN */
+        TCGv_i64 t1 = tcg_temp_new_i64();
+        TCGv_i32 sew = tcg_const_i32(1 << (s->sew + 3));
+        gen_helper_narrower_nanbox_fpr(t1, cpu_fpr[rs1], sew, cpu_env);
+        fn(dest, mask, t1, src2, cpu_env, desc);
+        tcg_temp_free_i64(t1);
+        tcg_temp_free_i32(sew);
+    } else {
+        fn(dest, mask, cpu_fpr[rs1], src2, cpu_env, desc);
+    }
 
     tcg_temp_free_ptr(dest);
     tcg_temp_free_ptr(mask);
