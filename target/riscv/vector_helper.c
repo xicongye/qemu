@@ -3207,6 +3207,38 @@ GEN_VEXT_VX_RM(vnclipu_vx_w, 4, 4, clearl)
 /*
  *** Vector Float Point Arithmetic Instructions
  */
+
+/*
+ * For SEW < FLEN,
+ * if f is not correctly NaN-boxed for SEW bits,
+ * canonical SEW-bit NaN is returned.
+ * Otherwise, original f is returned.
+ */
+static uint64_t narrower_nanbox_fpr(uint64_t f, uint32_t sew, float_status *s)
+{
+    uint64_t mask = MAKE_64BIT_MASK(sew, 64 - sew);
+    if ((f & mask) == mask) {
+        return f;
+    } else {
+        switch (sew) {
+        case 16:
+            return float16_default_nan(s);
+        case 32:
+            return float32_default_nan(s);
+        case 64:
+            return float64_default_nan(s);
+        default:
+            g_assert_not_reached();
+        }
+    }
+}
+
+uint64_t HELPER(narrower_nanbox_fpr)(uint64_t f, uint32_t sew,
+                                     CPURISCVState *env)
+{
+    return narrower_nanbox_fpr(f, sew, &env->fp_status);
+}
+
 /* Vector Single-Width Floating-Point Add/Subtract Instructions */
 #define OPFVV2(NAME, TD, T1, T2, TX1, TX2, HD, HS1, HS2, OP)   \
 static void do_##NAME(void *vd, void *vs1, void *vs2, int i,   \
