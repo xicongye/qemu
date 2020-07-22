@@ -96,9 +96,8 @@ typedef struct CPURISCVState CPURISCVState;
 
 #define RV_VLEN_MAX 256
 
-FIELD(VTYPE, VLMUL, 0, 2)
-FIELD(VTYPE, VSEW, 2, 3)
-FIELD(VTYPE, VFLMUL, 5, 1)
+FIELD(VTYPE, VLMUL, 0, 3)
+FIELD(VTYPE, VSEW, 3, 3)
 FIELD(VTYPE, VTA, 6, 1)
 FIELD(VTYPE, VMA, 7, 1)
 FIELD(VTYPE, VEDIV, 8, 2)
@@ -385,8 +384,7 @@ static inline uint32_t vext_get_vlmax(RISCVCPU *cpu, target_ulong vtype)
 {
     uint8_t sew, lmul;
     sew = FIELD_EX64(vtype, VTYPE, VSEW);
-    lmul = (FIELD_EX64(vtype, VTYPE, VFLMUL) << 2)
-            | FIELD_EX64(vtype, VTYPE, VLMUL);
+    lmul = FIELD_EX64(vtype, VTYPE, VLMUL);
     float flmul = flmul_table[lmul];
     return cpu->cfg.vlen * flmul / (1 << (sew + 3));
 }
@@ -418,8 +416,7 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
                     FIELD_EX64(env->vtype, VTYPE, VILL));
         flags = FIELD_DP32(flags, TB_FLAGS, SEW, sew);
         flags = FIELD_DP32(flags, TB_FLAGS, LMUL,
-                    (FIELD_EX64(env->vtype, VTYPE, VFLMUL) << 2)
-                        | FIELD_EX64(env->vtype, VTYPE, VLMUL));
+                    FIELD_EX64(env->vtype, VTYPE, VLMUL));
         flags = FIELD_DP32(flags, TB_FLAGS, VTA,
                     FIELD_EX64(env->vtype, VTYPE, VTA));
         flags = FIELD_DP32(flags, TB_FLAGS, VMA,

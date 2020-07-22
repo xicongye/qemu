@@ -39,8 +39,7 @@ target_ulong HELPER(vsetvl)(CPURISCVState *env, uint32_t rd, uint32_t rs1,
     vlmax = vext_get_vlmax(cpu, s2);
     target_ulong reserved = FIELD_EX64(s2, VTYPE, RESERVED);
 
-    uint64_t lmul = (FIELD_EX64(s2, VTYPE, VFLMUL) << 2)
-        | FIELD_EX64(s2, VTYPE, VLMUL);
+    uint64_t lmul = FIELD_EX64(s2, VTYPE, VLMUL);
     float vflmul = flmul_table[lmul];
 
     if ((sew > cpu->cfg.elen)
