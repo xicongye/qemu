@@ -60,6 +60,11 @@ static int fs(CPURISCVState *env, int csrno)
 static int vs(CPURISCVState *env, int csrno)
 {
     if (env->misa & RVV) {
+#ifndef CONFIG_USER_ONLY
+        if ((env->mstatus & MSTATUS_VS) == 0) {
+            return -1;
+        }
+#endif
         return 0;
     }
     return -1;
