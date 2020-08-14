@@ -33,7 +33,7 @@
 #include "internals.h"
 
 /* global register indices */
-static TCGv cpu_gpr[32], cpu_pc, cpu_vl;
+static TCGv cpu_gpr[32], cpu_pc, cpu_vl, cpu_vstart;
 static TCGv_i64 cpu_fpr[32]; /* assume F and D extensions */
 static TCGv load_res;
 static TCGv load_val;
@@ -64,6 +64,7 @@ typedef struct DisasContext {
     float flmul;
     uint8_t sew;
     uint16_t vlen;
+    target_ulong vstart;
     bool vl_eq_vlmax;
     bool ext_vqmac;
 } DisasContext;
@@ -878,6 +879,7 @@ static void riscv_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cs)
     ctx->lmul = FIELD_EX32(tb_flags, TB_FLAGS, LMUL);
     ctx->flmul = (ctx->lmul < 4) ?
                     (1 << ctx->lmul) : 1.0f / (1 << (8 - ctx->lmul));
+    ctx->vstart = env->vstart;
     ctx->vl_eq_vlmax = FIELD_EX32(tb_flags, TB_FLAGS, VL_EQ_VLMAX);
 }
 
@@ -994,6 +996,8 @@ void riscv_translate_init(void)
 
     cpu_pc = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, pc), "pc");
     cpu_vl = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, vl), "vl");
+    cpu_vstart = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, vstart),
+                            "vstart");
     load_res = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, load_res),
                              "load_res");
     load_val = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, load_val),
