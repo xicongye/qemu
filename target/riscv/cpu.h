@@ -92,7 +92,7 @@ typedef struct CPURISCVState CPURISCVState;
 
 #include "pmp.h"
 
-#define RV_VLEN_MAX 256
+#define RV_VLEN_MAX 512
 
 FIELD(VTYPE, VLMUL, 0, 3)
 FIELD(VTYPE, VSEW, 3, 3)
@@ -413,16 +413,17 @@ static inline void cpu_get_tb_cpu_state(CPURISCVState *env, target_ulong *pc,
         /*
          * If env->vl equals to VLMAX, we can use generic vector operation
          * expanders (GVEC) to accerlate the vector operations.
-         * However, as LMUL could be a fractional number. The maximum
-         * vector size can be operated might be less than 8 bytes,
-         * which is not supported by GVEC. So we set vl_eq_vlmax flag to true
-         * only when maxsz >= 8 bytes.
+         * However, as GVEC only supports MAXSZ and OPRSZ in the range of:
+         * [8..256] bytes and LMUL could be a fractional number. The maximum
+         * vector size can be operated might be less than 8 bytes or
+         * larger than 256 bytes. So we set vl_eq_vlmax flag to true only
+         * when maxsz >= 8 bytes and <= 256 bytes.
          */
         uint32_t vlmax = vext_get_vlmax(env_archcpu(env), env->vtype);
         uint32_t sew = FIELD_EX64(env->vtype, VTYPE, VSEW);
         uint32_t maxsz = vlmax << sew;
         bool vl_eq_vlmax = (env->vstart == 0) && (vlmax == env->vl)
-                           && (maxsz >= 8);
+                           && (maxsz >= 8) && (maxsz <= 256);
         flags = FIELD_DP32(flags, TB_FLAGS, VILL,
                     FIELD_EX64(env->vtype, VTYPE, VILL));
         flags = FIELD_DP32(flags, TB_FLAGS, SEW, sew);
