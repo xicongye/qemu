@@ -116,6 +116,7 @@ static bool trans_vsetvl(DisasContext *ctx, arg_vsetvl *a)
     gen_get_gpr(s2, a->rs2);
     gen_helper_vsetvl(dst, cpu_env, s1, s2);
     gen_set_gpr(a->rd, dst);
+    mark_vs_dirty(ctx);
     tcg_gen_movi_tl(cpu_pc, ctx->pc_succ_insn);
     lookup_and_goto_ptr(ctx);
     ctx->base.is_jmp = DISAS_NORETURN;
@@ -123,7 +124,6 @@ static bool trans_vsetvl(DisasContext *ctx, arg_vsetvl *a)
     tcg_temp_free(s1);
     tcg_temp_free(s2);
     tcg_temp_free(dst);
-    mark_vs_dirty(ctx);
     return true;
 }
 
@@ -150,13 +150,13 @@ static bool trans_vsetvli(DisasContext *ctx, arg_vsetvli *a)
     }
     gen_helper_vsetvl(dst, cpu_env, s1, s2);
     gen_set_gpr(a->rd, dst);
+    mark_vs_dirty(ctx);
     gen_goto_tb(ctx, 0, ctx->pc_succ_insn);
     ctx->base.is_jmp = DISAS_NORETURN;
 
     tcg_temp_free(s1);
     tcg_temp_free(s2);
     tcg_temp_free(dst);
-    mark_vs_dirty(ctx);
     return true;
 }
 
