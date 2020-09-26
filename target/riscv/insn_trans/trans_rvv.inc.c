@@ -151,7 +151,8 @@ static bool trans_vsetvli(DisasContext *ctx, arg_vsetvli *a)
     gen_helper_vsetvl(dst, cpu_env, s1, s2);
     gen_set_gpr(a->rd, dst);
     mark_vs_dirty(ctx);
-    gen_goto_tb(ctx, 0, ctx->pc_succ_insn);
+    tcg_gen_movi_tl(cpu_pc, ctx->pc_succ_insn);
+    lookup_and_goto_ptr(ctx);
     ctx->base.is_jmp = DISAS_NORETURN;
 
     tcg_temp_free(s1);
