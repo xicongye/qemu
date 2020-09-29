@@ -2703,6 +2703,10 @@ static bool opfv_check(DisasContext *s, arg_rmr *a)
 static bool trans_##NAME(DisasContext *s, arg_rmr *a)              \
 {                                                                  \
     if (CHECK(s, a)) {                                             \
+        if (FRM != FRM_DYN) {                                      \
+            gen_set_rm(s, FRM_DYN);                                \
+        }                                                          \
+                                                                   \
         uint32_t data = 0;                                         \
         static gen_helper_gvec_3_ptr * const fns[3] = {            \
             gen_helper_##NAME##_h,                                 \
@@ -2783,6 +2787,7 @@ static bool trans_vfmv_v_f(DisasContext *s, arg_vfmv_v_f *a)
         vext_check_isa_ill(s) &&
         require_align(a->rd, s->flmul) &&
         (s->sew != 0)) {
+        gen_set_rm(s, FRM_DYN);
         TCGv_i64 t1 = tcg_temp_local_new_i64();
         /* NaN-box f[rs1] */
         do_nanbox(s, t1, cpu_fpr[a->rs1]);
@@ -2847,6 +2852,10 @@ static bool opfv_widen_check(DisasContext *s, arg_rmr *a)
 static bool trans_##NAME(DisasContext *s, arg_rmr *a)              \
 {                                                                  \
     if (opfv_widen_check(s, a)) {                                  \
+        if (FRM != FRM_DYN) {                                      \
+            gen_set_rm(s, FRM_DYN);                                \
+        }                                                          \
+                                                                   \
         uint32_t data = 0;                                         \
         static gen_helper_gvec_3_ptr * const fns[2] = {            \
             gen_helper_##NAME##_h,                                 \
@@ -2930,6 +2939,10 @@ static bool opfv_narrow_check(DisasContext *s, arg_rmr *a)
 static bool trans_##NAME(DisasContext *s, arg_rmr *a)              \
 {                                                                  \
     if (opfv_narrow_check(s, a)) {                                 \
+        if (FRM != FRM_DYN) {                                      \
+            gen_set_rm(s, FRM_DYN);                                \
+        }                                                          \
+                                                                   \
         uint32_t data = 0;                                         \
         static gen_helper_gvec_3_ptr * const fns[2] = {            \
             gen_helper_##NAME##_h,                                 \
@@ -2968,6 +2981,10 @@ static bool opxfv_narrow_check(DisasContext *s, arg_rmr *a)
 static bool trans_##NAME(DisasContext *s, arg_rmr *a)              \
 {                                                                  \
     if (opxfv_narrow_check(s, a)) {                                \
+        if (FRM != FRM_DYN) {                                      \
+            gen_set_rm(s, FRM_DYN);                                \
+        }                                                          \
+                                                                   \
         uint32_t data = 0;                                         \
         static gen_helper_gvec_3_ptr * const fns[3] = {            \
             gen_helper_##NAME##_b,                                 \
@@ -3430,6 +3447,8 @@ static bool trans_vfmv_f_s(DisasContext *s, arg_vfmv_f_s *a)
         has_ext(s, RVF) &&
         (s->mstatus_fs != 0) &&
         (s->sew != 0)) {
+        gen_set_rm(s, FRM_DYN);
+
         unsigned int ofs = (8 << s->sew);
         unsigned int len = 64 - ofs;
         TCGv_i64 t_nan;
@@ -3456,6 +3475,8 @@ static bool trans_vfmv_s_f(DisasContext *s, arg_vfmv_s_f *a)
         vext_check_isa_ill(s) &&
         has_ext(s, RVF) &&
         (s->sew != 0)) {
+        gen_set_rm(s, FRM_DYN);
+
         /* The instructions ignore LMUL and vector register group. */
         TCGv_i64 t1;
         TCGLabel *over = gen_new_label();
