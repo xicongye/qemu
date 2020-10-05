@@ -58,10 +58,41 @@ static inline bool is_overlapped_widen(const int astart, int asize,
 
 static bool require_rvv(DisasContext *s)
 {
-    if (s->mstatus_vs == 0) {
+    return s->mstatus_vs != 0;
+}
+
+static bool require_rvf(DisasContext *s)
+{
+    if (s->mstatus_fs == 0) {
         return false;
     }
-    return true;
+
+    switch (s->sew) {
+    case MO_16:
+    case MO_32:
+        return has_ext(s, RVF);
+    case MO_64:
+        return has_ext(s, RVD);
+    default:
+        return false;
+    }
+}
+
+static bool require_scale_rvf(DisasContext *s)
+{
+    if (s->mstatus_fs == 0) {
+        return false;
+    }
+
+    switch (s->sew) {
+    case MO_8:
+    case MO_16:
+        return has_ext(s, RVF);
+    case MO_32:
+        return has_ext(s, RVD);
+    default:
+        return false;
+    }
 }
 
 static bool require_ext_vqmac(DisasContext *s)
@@ -2402,9 +2433,9 @@ static void do_nanbox(DisasContext *s, TCGv_i64 out, TCGv_i64 in)
 static bool opfvv_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_sss(s, a->rd, a->rs1, a->rs2, a->vm, true) &&
-           (s->sew != 0);
+           vext_check_sss(s, a->rd, a->rs1, a->rs2, a->vm, true);
 }
 
 /* OPFVV without GVEC IR */
@@ -2482,10 +2513,9 @@ static bool opfvf_trans(uint32_t vd, uint32_t rs1, uint32_t vs2,
 static bool opfvf_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
-           has_ext(s, RVF) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_sss(s, a->rd, a->rs1, a->rs2, a->vm, false) &&
-           (s->sew != 0);
+           vext_check_sss(s, a->rd, a->rs1, a->rs2, a->vm, false);
 }
 
 /* OPFVF without GVEC IR */
@@ -2516,9 +2546,9 @@ GEN_OPFVF_TRANS(vfrsub_vf,  opfvf_check)
 static bool opfvv_widen_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_dss(s, a->rd, a->rs1, a->rs2, a->vm, true) &&
-           (s->sew != 0);
+           vext_check_dss(s, a->rd, a->rs1, a->rs2, a->vm, true);
 }
 
 /* OPFVV with WIDEN */
@@ -2553,9 +2583,9 @@ GEN_OPFVV_WIDEN_TRANS(vfwsub_vv, opfvv_widen_check)
 static bool opfvf_widen_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_dss(s, a->rd, a->rs1, a->rs2, a->vm, false) &&
-           (s->sew != 0);
+           vext_check_dss(s, a->rd, a->rs1, a->rs2, a->vm, false);
 }
 
 /* OPFVF with WIDEN */
@@ -2582,9 +2612,9 @@ GEN_OPFVF_WIDEN_TRANS(vfwsub_vf)
 static bool opfwv_widen_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_dds(s, a->rd, a->rs1, a->rs2, a->vm, true) &&
-           (s->sew != 0);
+           vext_check_dds(s, a->rd, a->rs1, a->rs2, a->vm, true);
 }
 
 /* WIDEN OPFVV with WIDEN */
@@ -2619,9 +2649,9 @@ GEN_OPFWV_WIDEN_TRANS(vfwsub_wv)
 static bool opfwf_widen_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_dds(s, a->rd, a->rs1, a->rs2, a->vm, false) &&
-           (s->sew != 0);
+           vext_check_dds(s, a->rd, a->rs1, a->rs2, a->vm, false);
 }
 
 /* WIDEN OPFVF with WIDEN */
@@ -2693,10 +2723,10 @@ GEN_OPFVF_WIDEN_TRANS(vfwnmsac_vf)
 static bool opfv_check(DisasContext *s, arg_rmr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
            /* OPFV instructions ignore vs1 check */
-           vext_check_sss(s, a->rd, 0, a->rs2, a->vm, false) &&
-           (s->sew != 0);
+           vext_check_sss(s, a->rd, 0, a->rs2, a->vm, false);
 }
 
 #define GEN_OPFV_TRANS(NAME, CHECK, FRM)                           \
@@ -2749,9 +2779,9 @@ GEN_OPFVF_TRANS(vfsgnjx_vf, opfvf_check)
 static bool opfvv_cmp_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_mss(s, a->rd, a->rs1, a->rs2, true) &&
-           (s->sew != 0);
+           vext_check_mss(s, a->rd, a->rs1, a->rs2, true);
 }
 
 GEN_OPFVV_TRANS(vmfeq_vv, opfvv_cmp_check)
@@ -2762,9 +2792,9 @@ GEN_OPFVV_TRANS(vmfle_vv, opfvv_cmp_check)
 static bool opfvf_cmp_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_mss(s, a->rd, a->rs1, a->rs2, false) &&
-           (s->sew != 0);
+           vext_check_mss(s, a->rd, a->rs1, a->rs2, false);
 }
 
 GEN_OPFVF_TRANS(vmfeq_vf, opfvf_cmp_check)
@@ -2783,7 +2813,7 @@ GEN_OPFVF_TRANS(vfmerge_vfm,  opfvf_check)
 static bool trans_vfmv_v_f(DisasContext *s, arg_vfmv_v_f *a)
 {
     if (require_rvv(s) &&
-        has_ext(s, RVF) &&
+        require_rvf(s) &&
         vext_check_isa_ill(s) &&
         require_align(a->rd, s->flmul) &&
         (s->sew != 0)) {
@@ -2842,10 +2872,11 @@ GEN_OPFV_TRANS(vfcvt_rtz_x_f_v, opfv_check, FRM_RTZ)
 static bool opfv_widen_check(DisasContext *s, arg_rmr *a)
 {
     return require_rvv(s) &&
+           require_scale_rvf(s) &&
+           (s->sew != MO_8) &&
            vext_check_isa_ill(s) &&
            /* OPFV widening instructions ignore vs1 check */
-           vext_check_dss(s, a->rd, 0, a->rs2, a->vm, false) &&
-           (s->sew != 0);
+           vext_check_dss(s, a->rd, 0, a->rs2, a->vm, false);
 }
 
 #define GEN_OPFV_WIDEN_TRANS(NAME, FRM)                            \
@@ -2886,6 +2917,7 @@ GEN_OPFV_WIDEN_TRANS(vfwcvt_rtz_x_f_v, FRM_RTZ)
 static bool opfxv_widen_check(DisasContext *s, arg_rmr *a)
 {
     return require_rvv(s) &&
+           require_scale_rvf(s) &&
            vext_check_isa_ill(s) &&
            /* OPFV widening instructions ignore vs1 check */
            vext_check_dss(s, a->rd, 0, a->rs2, a->vm, false);
@@ -2929,10 +2961,11 @@ GEN_OPFXV_WIDEN_TRANS(vfwcvt_f_x_v)
 static bool opfv_narrow_check(DisasContext *s, arg_rmr *a)
 {
     return require_rvv(s) &&
+           require_rvf(s) &&
+           (s->sew != MO_64) &&
            vext_check_isa_ill(s) &&
            /* OPFV narrowing instructions ignore vs1 check */
-           vext_check_sds(s, a->rd, 0, a->rs2, a->vm, false) &&
-           (s->sew != 0);
+           vext_check_sds(s, a->rd, 0, a->rs2, a->vm, false);
 }
 
 #define GEN_OPFV_NARROW_TRANS(NAME, FRM)                           \
@@ -2972,6 +3005,7 @@ GEN_OPFV_NARROW_TRANS(vfncvt_rod_f_f_w, FRM_ROD)
 static bool opxfv_narrow_check(DisasContext *s, arg_rmr *a)
 {
     return require_rvv(s) &&
+           require_scale_rvf(s) &&
            vext_check_isa_ill(s) &&
            /* OPFV narrowing instructions ignore vs1 check */
            vext_check_sds(s, a->rd, 0, a->rs2, a->vm, false);
@@ -3020,7 +3054,8 @@ static bool reduction_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_reduction(s, a->rs2, false);
+           vext_check_reduction(s, a->rs2, false) &&
+           (s->vstart == 0);
 }
 
 GEN_OPIVV_TRANS(vredsum_vs, reduction_check)
@@ -3037,21 +3072,36 @@ static bool reduction_widen_check(DisasContext *s, arg_rmrr *a)
 {
     return require_rvv(s) &&
            vext_check_isa_ill(s) &&
-           vext_check_reduction(s, a->rs2, true);
+           vext_check_reduction(s, a->rs2, true) &&
+           (s->sew < MO_64) &&
+           (s->vstart == 0);
 }
 
 GEN_OPIVV_WIDEN_TRANS(vwredsum_vs, reduction_widen_check)
 GEN_OPIVV_WIDEN_TRANS(vwredsumu_vs, reduction_widen_check)
 
 /* Vector Single-Width Floating-Point Reduction Instructions */
-GEN_OPFVV_TRANS(vfredsum_vs, reduction_check)
-GEN_OPFVV_TRANS(vfredosum_vs, reduction_check)
-GEN_OPFVV_TRANS(vfredmax_vs, reduction_check)
-GEN_OPFVV_TRANS(vfredmin_vs, reduction_check)
+static bool freduction_check(DisasContext *s, arg_rmrr *a)
+{
+    return reduction_check(s, a) &&
+           require_rvf(s);
+}
+
+GEN_OPFVV_TRANS(vfredsum_vs, freduction_check)
+GEN_OPFVV_TRANS(vfredosum_vs, freduction_check)
+GEN_OPFVV_TRANS(vfredmax_vs, freduction_check)
+GEN_OPFVV_TRANS(vfredmin_vs, freduction_check)
 
 /* Vector Widening Floating-Point Reduction Instructions */
-GEN_OPFVV_WIDEN_TRANS(vfwredsum_vs, reduction_widen_check)
-GEN_OPFVV_WIDEN_TRANS(vfwredosum_vs, reduction_widen_check)
+static bool freduction_widen_check(DisasContext *s, arg_rmrr *a)
+{
+    return reduction_widen_check(s, a) &&
+           require_scale_rvf(s) &&
+           (s->sew != MO_8);
+}
+
+GEN_OPFVV_WIDEN_TRANS(vfwredsum_vs, freduction_widen_check)
+GEN_OPFVV_WIDEN_TRANS(vfwredosum_vs, freduction_widen_check)
 
 /*
  *** Vector Mask Operations
@@ -3443,10 +3493,8 @@ static bool trans_vmv_s_x(DisasContext *s, arg_vmv_s_x *a)
 static bool trans_vfmv_f_s(DisasContext *s, arg_vfmv_f_s *a)
 {
     if (require_rvv(s) &&
-        vext_check_isa_ill(s) &&
-        has_ext(s, RVF) &&
-        (s->mstatus_fs != 0) &&
-        (s->sew != 0)) {
+        require_rvf(s) &&
+        vext_check_isa_ill(s)) {
         gen_set_rm(s, FRM_DYN);
 
         unsigned int ofs = (8 << s->sew);
@@ -3472,9 +3520,8 @@ static bool trans_vfmv_f_s(DisasContext *s, arg_vfmv_f_s *a)
 static bool trans_vfmv_s_f(DisasContext *s, arg_vfmv_s_f *a)
 {
     if (require_rvv(s) &&
-        vext_check_isa_ill(s) &&
-        has_ext(s, RVF) &&
-        (s->sew != 0)) {
+        require_rvf(s) &&
+        vext_check_isa_ill(s)) {
         gen_set_rm(s, FRM_DYN);
 
         /* The instructions ignore LMUL and vector register group. */
@@ -3522,8 +3569,20 @@ GEN_OPIVX_TRANS(vslide1down_vx, slidedown_check)
 GEN_OPIVI_TRANS(vslidedown_vi, IMM_ZX, vslidedown_vx, slidedown_check)
 
 /* Vector Floating-Point Slide Instructions */
-GEN_OPFVF_TRANS(vfslide1up_vf, slideup_check)
-GEN_OPFVF_TRANS(vfslide1down_vf, slidedown_check)
+static bool fslideup_check(DisasContext *s, arg_rmrr *a)
+{
+    return slideup_check(s, a) &&
+           require_rvf(s);
+}
+
+static bool fslidedown_check(DisasContext *s, arg_rmrr *a)
+{
+    return slidedown_check(s, a) &&
+           require_rvf(s);
+}
+
+GEN_OPFVF_TRANS(vfslide1up_vf, fslideup_check)
+GEN_OPFVF_TRANS(vfslide1down_vf, fslidedown_check)
 
 /* Vector Register Gather Instruction */
 static bool vrgather_vv_check(DisasContext *s, arg_rmrr *a)
