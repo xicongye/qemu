@@ -3393,6 +3393,175 @@ float64 QEMU_FLATTEN float64_rsqrte7(float64 a, float_status *status)
     return float64_pack_raw(pr);
 }
 
+/*
+ * Reciprocal Estimate
+ */
+
+static FloatParts recip7_float(FloatParts a, float_status *s, const FloatFmt *p)
+{
+    // recip(+-inf) = +-0
+    if (a.cls == float_class_inf) {
+        a.cls = float_class_zero;
+        a.exp = 0;
+        a.frac = 0;
+        return a;
+    }
+
+    // recip(+-0) = +-inf
+    if (a.cls == float_class_zero) {
+        s->float_exception_flags |= float_flag_divbyzero;
+        a.cls = float_class_inf;
+        a.exp = p->exp_max;
+        a.frac = 0;
+        return a;
+    }
+
+    // recip(sNaN) = canonical NaN
+    if (a.cls == float_class_snan) {
+        s->float_exception_flags |= float_flag_invalid;
+        a.sign = 0;
+        a.exp = p->exp_max;
+        a.frac = 1ULL << (p->frac_size - 1);
+        return a;
+    }
+
+    // recip(qNaN) = canonical NaN
+    if (a.cls == float_class_qnan) {
+        a.sign = 0;
+        a.exp = p->exp_max;
+        a.frac = 1ULL << (p->frac_size - 1);
+        return a;
+    }
+
+    // +-normal, +-subnormal
+    assert(a.cls == float_class_normal);
+
+    const uint8_t lookup_table[] = {
+        127, 125, 123, 121, 119, 117, 116, 114,
+        112, 110, 109, 107, 105, 104, 102, 100,
+        99, 97, 96, 94, 93, 91, 90, 88,
+        87, 85, 84, 83, 81, 80, 79, 77,
+        76, 75, 74, 72, 71, 70, 69, 68,
+        66, 65, 64, 63, 62, 61, 60, 59,
+        58, 57, 56, 55, 54, 53, 52, 51,
+        50, 49, 48, 47, 46, 45, 44, 43,
+        42, 41, 40, 40, 39, 38, 37, 36,
+        35, 35, 34, 33, 32, 31, 31, 30,
+        29, 28, 28, 27, 26, 25, 25, 24,
+        23, 23, 22, 21, 21, 20, 19, 19,
+        18, 17, 17, 16, 15, 15, 14, 14,
+        13, 12, 12, 11, 11, 10, 9, 9,
+        8, 8, 7, 7, 6, 5, 5, 4,
+        4, 3, 3, 2, 2, 1, 1, 0
+    };
+    const int precision = 7;
+
+    uint64_t exp = a.exp;
+    uint64_t frac = a.frac;
+
+    if (exp == 0) { // +-subnormal
+        /* Normalize the subnormal. */
+        while (extract64(frac, p->frac_size - 1, 1) == 0) {
+            exp--;
+            frac <<= 1;
+        }
+
+        frac = (frac << 1) & MAKE_64BIT_MASK(0, p->frac_size);
+
+        if (exp != 0 && exp != UINT64_MAX) {
+            /* Overflow to inf or max value of same sign,
+             * depending on sign and rounding mode.
+             */
+            s->float_exception_flags |= (float_flag_inexact |
+                                         float_flag_overflow);
+
+            if ((s->float_rounding_mode == float_round_to_zero) ||
+                ((s->float_rounding_mode == float_round_down) && !a.sign) ||
+                ((s->float_rounding_mode == float_round_up) && a.sign)) {
+                /* Return greatest positive value. */
+                a.exp = p->exp_max - 1;
+                a.frac = MAKE_64BIT_MASK(0, p->frac_size);
+                return a;
+            } else {
+                /* Return +-inf. */
+                a.cls = float_class_inf;
+                a.exp = p->exp_max;
+                a.frac = 0;
+                return a;
+            }
+        }
+    }
+
+    int idx = frac >> (p->frac_size - precision);
+    uint64_t out_frac = (uint64_t)(lookup_table[idx]) <<
+                            (p->frac_size - precision);
+    uint64_t out_exp = 2 * MAKE_64BIT_MASK(0, p->exp_size - 1) + ~exp;
+
+    if (out_exp == 0 || out_exp == UINT64_MAX) {
+        /* The result is subnormal, but don't raise the underflow exception,
+         * because there's no additional loss of precision.
+         */
+        out_frac = (out_frac >> 1) | MAKE_64BIT_MASK(p->frac_size - 1, 1);
+        if (out_exp == UINT64_MAX) {
+            out_frac >>= 1;
+            out_exp = 0;
+        }
+    }
+
+    a.exp = out_exp;
+    a.frac = out_frac;
+
+    return a;
+}
+
+float16 QEMU_FLATTEN float16_recip7(float16 a, float_status *status)
+{
+    FloatParts pa = float16_unpack_raw(a);
+    pa.cls = (float16_is_infinity(a)
+              ? float_class_inf
+              : float16_is_zero(a)
+              ? float_class_zero
+              : !float16_is_any_nan(a)
+              ? float_class_normal
+              : float16_is_signaling_nan(a, status)
+              ? float_class_snan
+              : float_class_qnan);
+    FloatParts pr = recip7_float(pa, status, &float16_params);
+    return float16_pack_raw(pr);
+}
+
+float32 QEMU_FLATTEN float32_recip7(float32 a, float_status *status)
+{
+    FloatParts pa = float32_unpack_raw(a);
+    pa.cls = (float32_is_infinity(a)
+              ? float_class_inf
+              : float32_is_zero(a)
+              ? float_class_zero
+              : !float32_is_any_nan(a)
+              ? float_class_normal
+              : float32_is_signaling_nan(a, status)
+              ? float_class_snan
+              : float_class_qnan);
+    FloatParts pr = recip7_float(pa, status, &float32_params);
+    return float32_pack_raw(pr);
+}
+
+float64 QEMU_FLATTEN float64_recip7(float64 a, float_status *status)
+{
+    FloatParts pa = float64_unpack_raw(a);
+    pa.cls = (float64_is_infinity(a)
+              ? float_class_inf
+              : float64_is_zero(a)
+              ? float_class_zero
+              : !float64_is_any_nan(a)
+              ? float_class_normal
+              : float64_is_signaling_nan(a, status)
+              ? float_class_snan
+              : float_class_qnan);
+    FloatParts pr = recip7_float(pa, status, &float64_params);
+    return float64_pack_raw(pr);
+}
+
 /*----------------------------------------------------------------------------
 | The pattern for a default generated NaN.
 *----------------------------------------------------------------------------*/
