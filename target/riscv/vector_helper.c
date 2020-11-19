@@ -3699,6 +3699,14 @@ GEN_VEXT_V_ENV(vfsqrt_v_h, 2, 2)
 GEN_VEXT_V_ENV(vfsqrt_v_w, 4, 4)
 GEN_VEXT_V_ENV(vfsqrt_v_d, 8, 8)
 
+/* Vector Floating-Point Reciprocal Square-Root Estimate Instruction */
+RVVCALL(OPFVV1, vfrsqrte7_v_h, OP_UU_H, H2, H2, float16_rsqrte7)
+RVVCALL(OPFVV1, vfrsqrte7_v_w, OP_UU_W, H4, H4, float32_rsqrte7)
+RVVCALL(OPFVV1, vfrsqrte7_v_d, OP_UU_D, H8, H8, float64_rsqrte7)
+GEN_VEXT_V_ENV(vfrsqrte7_v_h, 2, 2)
+GEN_VEXT_V_ENV(vfrsqrte7_v_w, 4, 4)
+GEN_VEXT_V_ENV(vfrsqrte7_v_d, 8, 8)
+
 /* Vector Floating-Point MIN/MAX Instructions */
 RVVCALL(OPFVV2, vfmin_vv_h, OP_UUU_H, H2, H2, H2, float16_minnum_noprop)
 RVVCALL(OPFVV2, vfmin_vv_w, OP_UUU_W, H4, H4, H4, float32_minnum_noprop)
