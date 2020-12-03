@@ -249,11 +249,11 @@ vsse16_v    ... 010 . ..... ..... 101 ..... 0100111 @r_nfvm
 vsse32_v    ... 010 . ..... ..... 110 ..... 0100111 @r_nfvm
 vsse64_v    ... 010 . ..... ..... 111 ..... 0100111 @r_nfvm
 
-# Vector indexed load insns.
-vlxei8_v      ... 011 . ..... ..... 000 ..... 0000111 @r_nfvm
-vlxei16_v     ... 011 . ..... ..... 101 ..... 0000111 @r_nfvm
-vlxei32_v     ... 011 . ..... ..... 110 ..... 0000111 @r_nfvm
-vlxei64_v     ... 011 . ..... ..... 111 ..... 0000111 @r_nfvm
+# Vector ordered-indexed and unordered-indexed load insns.
+vlxei8_v      ... 0-1 . ..... ..... 000 ..... 0000111 @r_nfvm
+vlxei16_v     ... 0-1 . ..... ..... 101 ..... 0000111 @r_nfvm
+vlxei32_v     ... 0-1 . ..... ..... 110 ..... 0000111 @r_nfvm
+vlxei64_v     ... 0-1 . ..... ..... 111 ..... 0000111 @r_nfvm
 
 # Vector ordered-indexed and unordered-indexed store insns.
 vsxei8_v      ... 0-1 . ..... ..... 000 ..... 0100111 @r_nfvm

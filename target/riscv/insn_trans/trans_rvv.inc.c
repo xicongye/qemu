@@ -283,23 +283,36 @@ static bool vext_check_st_index(DisasContext *s, int vd, int vs2, int nf,
 static bool vext_check_ld_index(DisasContext *s, int vd, int vs2,
                                 int nf, int vm, uint8_t eew)
 {
+    int8_t seg_vd;
     float emul = (float)eew / (1 << (s->sew + 3)) * s->flmul;
     bool ret = vext_check_st_index(s, vd, vs2, nf, eew) &&
                require_vm(vm, vd);
-    if (eew > (1 << (s->sew + 3))) {
-        if (vd != vs2) {
-            ret &= require_noover(vd, s->flmul, vs2, emul);
+    int8_t flmul_r = s->flmul < 1 ? 1 : s->flmul;
+
+    /* Each segment register group has to follow overlap rules. */
+    for (int i = 0; i < nf; ++i) {
+        seg_vd = vd + flmul_r * i;
+
+        if (eew > (1 << (s->sew + 3))) {
+            if (seg_vd != vs2) {
+                ret &= require_noover(seg_vd, s->flmul, vs2, emul);
+            }
+        } else if (eew < (1 << (s->sew + 3))) {
+            if (emul < 1) {
+                ret &= require_noover(seg_vd, s->flmul, vs2, emul);
+            } else {
+                ret &= require_noover_widen(seg_vd, s->flmul, vs2, emul);
+            }
         }
-    } else if (eew < (1 << (s->sew + 3))) {
-        if (emul < 1) {
-            ret &= require_noover(vd, s->flmul, vs2, emul);
-        } else {
-            ret &= require_noover_widen(vd, s->flmul, vs2, emul);
+
+        /*
+         * Destination vector register groups cannot overlap
+         * the source vector register (vs2) group for
+         * indexed segment load instructions.
+         */
+        if (nf > 1) {
+            ret &= require_noover(seg_vd, s->flmul, vs2, emul);
         }
-    }
-    if (nf > 1) {
-        ret &= (require_noover(vd, s->flmul, vs2, emul) &&
-                require_noover(vd, nf, vs2, 1));
     }
     return ret;
 }
