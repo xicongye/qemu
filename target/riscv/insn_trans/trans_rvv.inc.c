@@ -3607,7 +3607,8 @@ static bool vrgatherei16_vv_check(DisasContext *s, arg_rmrr *a)
            require_align(a->rd, s->flmul) &&
            require_align(a->rs1, emul) &&
            require_align(a->rs2, s->flmul) &&
-           (a->rd != a->rs2 && a->rd != a->rs1) &&
+           require_noover(a->rd, s->flmul, a->rs1, emul) &&
+           (a->rd != a->rs2) &&
            require_vm(a->vm, a->rd);
 }
 
