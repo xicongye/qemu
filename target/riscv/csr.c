@@ -58,12 +58,12 @@ static int vs(CPURISCVState *env, int csrno)
     if (env->misa & RVV) {
 #if !defined(CONFIG_USER_ONLY)
         if (!env->debugger && !riscv_cpu_vector_enabled(env)) {
-            return -1;
+            return -RISCV_EXCP_ILLEGAL_INST;
         }
 #endif
         return 0;
     }
-    return -1;
+    return -RISCV_EXCP_ILLEGAL_INST;
 }
 
 static int ctr(CPURISCVState *env, int csrno)
@@ -268,7 +268,7 @@ static int write_vxrm(CPURISCVState *env, int csrno, target_ulong val)
 {
 #if !defined(CONFIG_USER_ONLY)
     if (!env->debugger && !riscv_cpu_vector_enabled(env)) {
-        return -1;
+        return -RISCV_EXCP_ILLEGAL_INST;
     }
     env->mstatus |= MSTATUS_VS | MSTATUS_SD;
 #endif
@@ -287,7 +287,7 @@ static int write_vxsat(CPURISCVState *env, int csrno, target_ulong val)
 {
 #if !defined(CONFIG_USER_ONLY)
     if (!env->debugger && !riscv_cpu_vector_enabled(env)) {
-        return -1;
+        return -RISCV_EXCP_ILLEGAL_INST;
     }
     env->mstatus |= MSTATUS_VS | MSTATUS_SD;
 #endif
@@ -306,7 +306,7 @@ static int write_vstart(CPURISCVState *env, int csrno, target_ulong val)
 {
 #if !defined(CONFIG_USER_ONLY)
     if (!env->debugger && !riscv_cpu_vector_enabled(env)) {
-        return -1;
+        return -RISCV_EXCP_ILLEGAL_INST;
     }
     env->mstatus |= MSTATUS_VS | MSTATUS_SD;
 #endif
@@ -329,7 +329,7 @@ static int write_vcsr(CPURISCVState *env, int csrno, target_ulong val)
 {
 #if !defined(CONFIG_USER_ONLY)
     if (!env->debugger && !riscv_cpu_vector_enabled(env)) {
-        return -1;
+        return -RISCV_EXCP_ILLEGAL_INST;
     }
     env->mstatus |= MSTATUS_VS | MSTATUS_SD;
 #endif
