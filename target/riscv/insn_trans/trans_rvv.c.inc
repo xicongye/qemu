@@ -3657,7 +3657,12 @@ static bool trans_vrgather_vi(DisasContext *s, arg_rmrr *a)
     return true;
 }
 
-/* Vector Compress Instruction */
+/*
+ * Vector Compress Instruction
+ *
+ * The destination vector register group cannot overlap the
+ * source vector register group or the source mask register.
+ */
 static bool vcompress_vm_check(DisasContext *s, arg_r *a)
 {
     return require_rvv(s) &&
@@ -3665,7 +3670,7 @@ static bool vcompress_vm_check(DisasContext *s, arg_r *a)
            require_align(a->rd, s->lmul) &&
            require_align(a->rs2, s->lmul) &&
            (a->rd != a->rs2) &&
-           require_noover(a->rd, s->lmul, a->rs1, 0) &&
+           !is_overlapped(a->rd, 1 << MAX(s->lmul, 0), a->rs1, 1) &&
            (s->vstart == 0);
 }
 
