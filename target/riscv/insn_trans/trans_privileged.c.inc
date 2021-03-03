@@ -20,22 +20,10 @@
 
 static bool trans_ecall(DisasContext *ctx, arg_ecall *a)
 {
-    TCGv a0 = tcg_temp_new();
-    TCGv a7 = tcg_temp_new();
-
-    gen_get_gpr(a0, 10);
-    gen_get_gpr(a7, 17);
-
-    gen_helper_semihosting(cpu_env, a0, a7);
-
     /* always generates U-level ECALL, fixed in do_interrupt handler */
     generate_exception(ctx, RISCV_EXCP_U_ECALL);
     exit_tb(ctx); /* no chaining */
     ctx->base.is_jmp = DISAS_NORETURN;
-
-    tcg_temp_free(a0);
-    tcg_temp_free(a7);
-
     return true;
 }
 
